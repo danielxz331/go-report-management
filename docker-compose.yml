@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"  # Mapeo del puerto del host al puerto del contenedor
+    environment:
+      - ENV_VAR_NAME=value  # Variable de entorno de ejemplo
+    volumes:
+      - .:/app  # Monta el directorio actual en /app dentro del contenedor
+    restart: unless-stopped  # Política de reinicio
+    networks:
+      - report-management-network  # Conexión a la red personalizada
+
+  db:
+    image: mariadb:latest
+    container_name: database-report-management
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "3309:3306"
+    environment:
+      MYSQL_DATABASE: grainecap
+      MYSQL_ROOT_PASSWORD: X0AhfRCK8GMeHfx2
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    volumes:
+      - dbdata:/var/lib/mysql
+      - ./docker-compose/mysql/my.cnf:/etc/mysql/my.cnf
+#      - ./docker-compose/dump:/home
+    networks:
+      - report-management-network
+
+networks:
+  report-management-network:
+    driver: bridge
+
+volumes:
+  dbdata:
+    driver: local
