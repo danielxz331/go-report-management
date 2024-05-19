@@ -5,14 +5,22 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/joho/godotenv"
 	"go-report-management/structs"
 	"gorm.io/gorm"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
 
-var jwtKey = []byte("vPHew4aTzV0RayL4nIO47pjlEVQByYAOU5kf2AhAhui81840NBjanqlSuDN9XSmT")
+func loadEnv() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+}
 
 type Claims struct {
 	Username string `json:"username"`
@@ -42,13 +50,11 @@ func Login(c *gin.Context, db *gorm.DB) {
 		return
 	}
 
-	// Verificar la contraseña
 	if !checkPasswordHash(creds.Password, user.Password) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Incorrect password"})
 		return
 	}
 
-	// Generar JWT y Refresh Token
 	tokenString, err := GenerateJWT(creds.Username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate token"})
@@ -68,8 +74,13 @@ func checkPasswordHash(password, hash string) bool {
 	return fmt.Sprintf("%x", sha1.Sum([]byte(password))) == hash
 }
 
-// Genera token de acceso (JWT)
 func GenerateJWT(username string) (string, error) {
+	loadEnv()
+	jwtKey, jwtKeyExists := os.LookupEnv("jwtSecret")
+	if !jwtKeyExists {
+		log.Fatalf("JWT secret is missing")
+	}
+
 	expirationTime := time.Now().Add(15 * time.Minute)
 	claims := &Claims{
 		Username: username,
@@ -80,13 +91,18 @@ func GenerateJWT(username string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtKey)
+	tokenString, err := token.SignedString([]byte(jwtKey))
 
 	return tokenString, err
 }
 
-// Genera token de actualización
 func GenerateRefreshJWT(username string) (string, error) {
+	loadEnv()
+	jwtKey, jwtKeyExists := os.LookupEnv("jwtSecret")
+
+	if !jwtKeyExists {
+		log.Fatalf("JWT secret is missing")
+	}
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &Claims{
 		Username: username,
@@ -97,12 +113,18 @@ func GenerateRefreshJWT(username string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtKey)
+	tokenString, err := token.SignedString([]byte(jwtKey))
 
 	return tokenString, err
 }
 
 func AuthenticateJWT() gin.HandlerFunc {
+	loadEnv()
+	jwtKey, jwtKeyExists := os.LookupEnv("jwtSecret")
+
+	if !jwtKeyExists {
+		log.Fatalf("JWT secret is missing")
+	}
 	return func(c *gin.Context) {
 		const Bearer_schema = "Bearer "
 		authHeader := c.GetHeader("Authorization")
@@ -135,7 +157,13 @@ func AuthenticateJWT() gin.HandlerFunc {
 	}
 }
 
-func RefreshToken(c *gin.Context, db *gorm.DB) {
+func RefreshToken(c *gin.Context) {
+	loadEnv()
+	jwtKey, jwtKeyExists := os.LookupEnv("jwtSecret")
+
+	if !jwtKeyExists {
+		log.Fatalf("JWT secret is missing")
+	}
 	var requestBody struct {
 		RefreshToken string `json:"refresh_token"`
 	}
@@ -162,7 +190,7 @@ func RefreshToken(c *gin.Context, db *gorm.DB) {
 		claims["exp"] = expirationTime.Unix()
 
 		newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		tokenString, err := newToken.SignedString(jwtKey)
+		tokenString, err := newToken.SignedString([]byte(jwtKey))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create token"})
 			return
