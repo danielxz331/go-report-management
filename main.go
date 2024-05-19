@@ -13,7 +13,9 @@ import (
 )
 
 func main() {
+
 	db, err := database.InitconnectionSQL()
+
 
 	dbormi, err := database.InitconnectionGORM()
 	if err != nil {
