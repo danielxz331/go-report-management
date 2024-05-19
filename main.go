@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	dataSourceName := "root:X0AhfRCK8GMeHfx2@tcp(localhost:3309)/umbrella-claro?charset=utf8&parseTime=True&loc=Local"
+	dataSourceName := "root:X0AhfRCK8GMeHfx2@tcp(db:3306)/umbrella-claro?charset=utf8&parseTime=True&loc=Local"
 	db, err := database.InitconnectionSQL(dataSourceName)
 
 	dbormi, err := database.InitconnectionGORM(dataSourceName)
