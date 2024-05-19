@@ -13,19 +13,19 @@ import (
 )
 
 func main() {
-	dataSourceName := "root:X0AhfRCK8GMeHfx2@tcp(db:3306)/umbrella-claro?charset=utf8&parseTime=True&loc=Local"
-	db, err := database.InitconnectionSQL(dataSourceName)
 
-	dbormi, err := database.InitconnectionGORM(dataSourceName)
+	db, err := database.InitconnectionSQL()
+
+
+	dbormi, err := database.InitconnectionGORM()
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
 	router := gin.Default()
 
-	// Configurar CORS
 	config := cors.Config{
-		AllowOrigins:     []string{"*"}, // Permitir todos los orígenes, puedes especificar los orígenes permitidos
+		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -34,7 +34,7 @@ func main() {
 	router.Use(cors.New(config))
 
 	router.POST("/login", func(c *gin.Context) { services.Login(c, dbormi) })
-	router.POST("/refresh-token", func(c *gin.Context) { services.RefreshToken(c, dbormi) })
+	router.POST("/refresh-token", func(c *gin.Context) { services.RefreshToken(c) })
 
 	authorized := router.Group("/")
 	authorized.Use(services.AuthenticateJWT())
