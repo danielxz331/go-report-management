@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go-report-management/cruds"
 	"go-report-management/database"
@@ -21,6 +22,16 @@ func main() {
 	}
 
 	router := gin.Default()
+
+	// Configurar CORS
+	config := cors.Config{
+		AllowOrigins:     []string{"*"}, // Permitir todos los orígenes, puedes especificar los orígenes permitidos
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}
+	router.Use(cors.New(config))
 
 	router.POST("/login", func(c *gin.Context) { services.Login(c, dbormi) })
 
