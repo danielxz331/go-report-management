@@ -34,6 +34,7 @@ func main() {
 	router.Use(cors.New(config))
 
 	router.POST("/login", func(c *gin.Context) { services.Login(c, dbormi) })
+	router.POST("/refresh-token", func(c *gin.Context) { services.RefreshToken(c, dbormi) })
 
 	authorized := router.Group("/")
 	authorized.Use(services.AuthenticateJWT())

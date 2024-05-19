@@ -134,3 +134,42 @@ func AuthenticateJWT() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func RefreshToken(c *gin.Context, db *gorm.DB) {
+	var requestBody struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	token, err := jwt.Parse(requestBody.RefreshToken, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+		return jwtKey, nil
+	})
+
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
+		return
+
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		expirationTime := time.Now().Add(15 * time.Minute)
+		claims["exp"] = expirationTime.Unix()
+
+		newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		tokenString, err := newToken.SignedString(jwtKey)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create token"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"token": tokenString})
+	} else {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
+	}
+}
