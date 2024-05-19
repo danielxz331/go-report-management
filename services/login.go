@@ -125,15 +125,16 @@ func AuthenticateJWT() gin.HandlerFunc {
 	if !jwtKeyExists {
 		log.Fatalf("JWT secret is missing")
 	}
+
 	return func(c *gin.Context) {
-		const Bearer_schema = "Bearer "
+		const BearerSchema = "Bearer "
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
 			return
 		}
 
-		tokenString := strings.TrimPrefix(authHeader, Bearer_schema)
+		tokenString := strings.TrimPrefix(authHeader, BearerSchema)
 		if tokenString == authHeader {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token format"})
 			return
@@ -144,11 +145,17 @@ func AuthenticateJWT() gin.HandlerFunc {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			return jwtKey, nil
+			return []byte(jwtKey), nil
 		})
 
 		if err != nil || !token.Valid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			var message string
+			if err != nil {
+				message = err.Error()
+			} else {
+				message = "Invalid token"
+			}
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": message})
 			return
 		}
 
@@ -164,9 +171,11 @@ func RefreshToken(c *gin.Context) {
 	if !jwtKeyExists {
 		log.Fatalf("JWT secret is missing")
 	}
+
 	var requestBody struct {
 		RefreshToken string `json:"refresh_token"`
 	}
+
 	if err := c.ShouldBindJSON(&requestBody); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
@@ -174,18 +183,23 @@ func RefreshToken(c *gin.Context) {
 
 	token, err := jwt.Parse(requestBody.RefreshToken, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return jwtKey, nil
+		return []byte(jwtKey), nil
 	})
 
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
 		return
-
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		if float64(time.Now().Unix()) > claims["exp"].(float64) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Refresh token has expired"})
+			return
+		}
+
+		// Crear nuevo token JWT
 		expirationTime := time.Now().Add(15 * time.Minute)
 		claims["exp"] = expirationTime.Unix()
 
