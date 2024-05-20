@@ -198,8 +198,7 @@ func RefreshToken(c *gin.Context) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Refresh token has expired"})
 			return
 		}
-
-		// Crear nuevo token JWT
+		
 		expirationTime := time.Now().Add(15 * time.Minute)
 		claims["exp"] = expirationTime.Unix()
 
