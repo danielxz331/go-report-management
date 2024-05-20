@@ -17,12 +17,9 @@ func GetQueryByID(db *sql.DB, id int) (string, string, error) {
 	return query, whereClause, nil
 }
 
-func ExecuteQuery(db *sql.DB, query, whereClause string) ([]map[string]interface{}, error) {
-	if whereClause != "" {
-		query += " WHERE " + whereClause + " LIMIT 10"
-	}
-
-	rows, err := db.Query(query)
+func ExecuteQuery(db *sql.DB, query, whereClause string, offset, limit int) ([]map[string]interface{}, error) {
+	paginatedQuery := fmt.Sprintf("%s WHERE %s LIMIT %d OFFSET %d", query, whereClause, limit, offset)
+	rows, err := db.Query(paginatedQuery)
 	if err != nil {
 		log.Printf("Error executing query: %v\n", err)
 		return nil, err
@@ -52,7 +49,10 @@ func ExecuteQuery(db *sql.DB, query, whereClause string) ([]map[string]interface
 		for i, colName := range cols {
 			val := columnPointers[i].(*interface{})
 			processedValue, err := utils.ProcessValue(val)
-			fmt.Println(err)
+			if err != nil {
+				log.Printf("Error processing value: %v\n", err)
+				return nil, err
+			}
 			m[colName] = processedValue
 		}
 		results = append(results, m)
