@@ -1,21 +1,34 @@
 package main
 
 import (
-	"fmt"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"go-report-management/cruds"
 	"go-report-management/database"
-	"go-report-management/services"
+	"go-report-management/routes"
 	"log"
-	"net/http"
-	"strconv"
+	"sync"
+	"time"
+)
+
+var (
+	reportQueue = make(chan int, 10)
+	semaphore   = make(chan struct{}, 2)
+	wg          sync.WaitGroup
+)
+
+const (
+	blockSize = 250000
 )
 
 func main() {
-
 	db, err := database.InitconnectionSQL()
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
 
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(time.Minute * 3)
 
 	dbormi, err := database.InitconnectionGORM()
 	if err != nil {
@@ -33,34 +46,10 @@ func main() {
 	}
 	router.Use(cors.New(config))
 
-	router.POST("/login", func(c *gin.Context) { services.Login(c, dbormi) })
-	router.POST("/refresh-token", func(c *gin.Context) { services.RefreshToken(c) })
+	routes.SetupRoutes(router, db, dbormi, reportQueue, blockSize)
 
-	authorized := router.Group("/")
-	authorized.Use(services.AuthenticateJWT())
-	{
-		authorized.GET("/report/:id", func(c *gin.Context) {
-			id, err := strconv.Atoi(c.Param("id"))
+	go routes.ProcessReports(db, reportQueue, semaphore, &wg, blockSize)
 
-			if err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid ID format"})
-				return
-			}
-
-			query, whereClause, err := database.GetQueryByID(db, id)
-
-			fmt.Println("ID: ", id)
-
-			results, err := database.ExecuteQuery(db, query, whereClause)
-
-			c.JSON(http.StatusOK, results)
-		})
-
-		authorized.POST("/reports", func(c *gin.Context) { cruds.CreateReport(c, dbormi) })
-		authorized.GET("/reports/:id", func(c *gin.Context) { cruds.GetReport(c, dbormi) })
-		authorized.PUT("/reports/:id", func(c *gin.Context) { cruds.UpdateReport(c, dbormi) })
-		authorized.DELETE("/reports/:id", func(c *gin.Context) { cruds.DeleteReport(c, dbormi) })
-		authorized.GET("/reports", func(c *gin.Context) { cruds.ListReports(c, dbormi) })
-	}
 	router.Run(":8080")
+	wg.Wait()
 }
