@@ -16,7 +16,7 @@ func GenerateReport(db *sql.DB, reportID int, blockSize int, filters map[string]
 		log.Printf("error getting query by ID: %v", err)
 		return
 	}
-
+	fmt.Println("entro")
 	havingClause := buildHavingClause(filters)
 
 	totalRows, err := GetTotalRows(db, query, whereClause, havingClause)

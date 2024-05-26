@@ -39,7 +39,7 @@ func ProcessReports(db *sql.DB, reportQueue chan int, semaphore chan struct{}, w
 		go func(id int) {
 			defer wg.Done()
 			defer func() { <-semaphore }()
-			services.GenerateReport(db, id, blockSize, filters)
+			//services.GenerateReport(db, id, blockSize, filters)
 		}(reportID)
 	}
 }

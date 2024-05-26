@@ -39,7 +39,9 @@ func GenerateExcelReportHandler(c *gin.Context, db *sql.DB, reportQueue chan int
 
 	filters := extractFilters(c)
 	reportQueue <- id
-	go services.GenerateReport(db, id, blockSize, filters)
+	go func() {
+		services.GenerateReport(db, id, blockSize, filters)
+	}()
 	c.JSON(http.StatusAccepted, gin.H{"message": "Excel report generation in progress"})
 }
 
