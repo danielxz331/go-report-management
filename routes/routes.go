@@ -32,14 +32,14 @@ func SetupRoutes(router *gin.Engine, db *sql.DB, dbormi *gorm.DB, reportQueue ch
 	}
 }
 
-func ProcessReports(db *sql.DB, reportQueue chan int, semaphore chan struct{}, wg *sync.WaitGroup, blockSize int) {
+func ProcessReports(db *sql.DB, reportQueue chan int, semaphore chan struct{}, wg *sync.WaitGroup, blockSize int, filters map[string]string) {
 	for reportID := range reportQueue {
 		wg.Add(1)
 		semaphore <- struct{}{}
 		go func(id int) {
 			defer wg.Done()
 			defer func() { <-semaphore }()
-			services.GenerateReport(db, id, blockSize)
+			services.GenerateReport(db, id, blockSize, filters)
 		}(reportID)
 	}
 }

@@ -48,7 +48,10 @@ func main() {
 
 	routes.SetupRoutes(router, db, dbormi, reportQueue, blockSize)
 
-	go routes.ProcessReports(db, reportQueue, semaphore, &wg, blockSize)
+	// Filtros vacíos como ejemplo; ajusta según sea necesario
+	filters := map[string]string{}
+
+	go routes.ProcessReports(db, reportQueue, semaphore, &wg, blockSize, filters)
 
 	router.Run(":8080")
 	wg.Wait()

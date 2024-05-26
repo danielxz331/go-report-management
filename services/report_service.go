@@ -6,17 +6,20 @@ import (
 	"github.com/xuri/excelize/v2"
 	"go-report-management/utils"
 	"log"
+	"strings"
 	"sync"
 )
 
-func GenerateReport(db *sql.DB, reportID int, blockSize int) {
+func GenerateReport(db *sql.DB, reportID int, blockSize int, filters map[string]string) {
 	query, whereClause, err := GetQueryByID(db, reportID)
 	if err != nil {
 		log.Printf("error getting query by ID: %v", err)
 		return
 	}
 
-	totalRows, err := GetTotalRows(db, query, whereClause)
+	havingClause := buildHavingClause(filters)
+
+	totalRows, err := GetTotalRows(db, query, whereClause, havingClause)
 	if err != nil {
 		log.Printf("error getting total rows: %v", err)
 		return
@@ -65,7 +68,7 @@ func GenerateReport(db *sql.DB, reportID int, blockSize int) {
 		wgChunks.Add(1)
 		go func(offset int) {
 			defer wgChunks.Done()
-			results, err := ExecuteQuery(db, query, whereClause, offset, blockSize)
+			results, err := ExecuteQuery(db, query, whereClause, havingClause, offset, blockSize)
 			if err != nil {
 				log.Printf("error executing query block: %v", err)
 				return
@@ -78,13 +81,15 @@ func GenerateReport(db *sql.DB, reportID int, blockSize int) {
 	close(resultsChan)
 }
 
-func GetReportDataPaginated(db *sql.DB, reportID, limit, offset int) ([]map[string]interface{}, error) {
+func GetReportDataPaginated(db *sql.DB, reportID, limit, offset int, filters map[string]string) ([]map[string]interface{}, error) {
 	query, whereClause, err := GetQueryByID(db, reportID)
 	if err != nil {
 		return nil, fmt.Errorf("error getting query by ID: %v", err)
 	}
 
-	results, err := ExecuteQuery(db, query, whereClause, offset, limit)
+	havingClause := buildHavingClause(filters)
+
+	results, err := ExecuteQuery(db, query, whereClause, havingClause, offset, limit)
 	if err != nil {
 		return nil, fmt.Errorf("error executing query: %v", err)
 	}
@@ -102,8 +107,14 @@ func GetQueryByID(db *sql.DB, id int) (string, string, error) {
 	return query, whereClause, nil
 }
 
-func ExecuteQuery(db *sql.DB, query, whereClause string, offset, limit int) ([]map[string]interface{}, error) {
-	paginatedQuery := fmt.Sprintf("%s WHERE %s LIMIT %d OFFSET %d", query, whereClause, limit, offset)
+func ExecuteQuery(db *sql.DB, query, whereClause, havingClause string, offset, limit int) ([]map[string]interface{}, error) {
+	var paginatedQuery string
+	if havingClause == "" {
+		paginatedQuery = fmt.Sprintf("%s WHERE %s LIMIT %d OFFSET %d", query, whereClause, limit, offset)
+	} else {
+		paginatedQuery = fmt.Sprintf("%s WHERE %s HAVING %s LIMIT %d OFFSET %d", query, whereClause, havingClause, limit, offset)
+	}
+
 	rows, err := db.Query(paginatedQuery)
 	if err != nil {
 		log.Printf("Error executing query: %v\n", err)
@@ -151,9 +162,28 @@ func ExecuteQuery(db *sql.DB, query, whereClause string, offset, limit int) ([]m
 	return results, nil
 }
 
-func GetTotalRows(db *sql.DB, query, whereClause string) (int, error) {
+func GetTotalRows(db *sql.DB, query, whereClause, havingClause string) (int, error) {
 	var totalRows int
-	row := db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM (%s WHERE %s) AS count_query", query, whereClause))
+	var countQuery string
+	if havingClause == "" {
+		countQuery = fmt.Sprintf("SELECT COUNT(*) FROM (%s WHERE %s) AS count_query", query, whereClause)
+	} else {
+		countQuery = fmt.Sprintf("SELECT COUNT(*) FROM (%s WHERE %s HAVING %s) AS count_query", query, whereClause, havingClause)
+	}
+	row := db.QueryRow(countQuery)
 	err := row.Scan(&totalRows)
 	return totalRows, err
+}
+
+func buildHavingClause(filters map[string]string) string {
+	if len(filters) == 0 {
+		return ""
+	}
+
+	var filterConditions []string
+	for key, value := range filters {
+		filterConditions = append(filterConditions, fmt.Sprintf("%s LIKE '%%%s%%'", key, value))
+	}
+
+	return strings.Join(filterConditions, " AND ")
 }

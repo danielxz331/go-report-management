@@ -37,7 +37,9 @@ func GenerateExcelReportHandler(c *gin.Context, db *sql.DB, reportQueue chan int
 		return
 	}
 
+	filters := extractFilters(c)
 	reportQueue <- id
+	go services.GenerateReport(db, id, blockSize, filters)
 	c.JSON(http.StatusAccepted, gin.H{"message": "Excel report generation in progress"})
 }
 
@@ -63,7 +65,8 @@ func GetReportDataPaginatedHandler(c *gin.Context, db *sql.DB) {
 
 	offset := (page - 1) * limit
 
-	results, err := services.GetReportDataPaginated(db, id, limit, offset)
+	filters := extractFilters(c)
+	results, err := services.GetReportDataPaginated(db, id, limit, offset, filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -74,4 +77,14 @@ func GetReportDataPaginatedHandler(c *gin.Context, db *sql.DB) {
 		"pageSize": limit,
 		"results":  results,
 	})
+}
+
+func extractFilters(c *gin.Context) map[string]string {
+	filters := make(map[string]string)
+	for key, values := range c.Request.URL.Query() {
+		if key != "id" && key != "page" && key != "limit" {
+			filters[key] = values[0]
+		}
+	}
+	return filters
 }
