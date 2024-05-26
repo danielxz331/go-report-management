@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/xuri/excelize/v2"
 	"log"
 	"os"
@@ -42,7 +43,8 @@ func WriteResults(f *excelize.File, headers []string, results []map[string]inter
 
 // SaveExcelFile saves the excel file and uploads it to DigitalOcean Spaces.
 func SaveExcelFile(f *excelize.File, reportID int) (string, error) {
-	filename := fmt.Sprintf("report_%d.xlsx", reportID)
+	uuid := uuid.New()
+	filename := fmt.Sprintf("report_%d_%s.xlsx", reportID, uuid.String())
 	localFilePath := filepath.Join("reports", filename)
 
 	if err := os.MkdirAll("reports", os.ModePerm); err != nil {
