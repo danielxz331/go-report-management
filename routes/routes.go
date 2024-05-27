@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go-report-management/handlers"
 	"go-report-management/services"
+	"go-report-management/websockets"
 	"gorm.io/gorm"
 	"sync"
 )
@@ -20,7 +21,7 @@ func SetupRoutes(router *gin.Engine, db *sql.DB, dbormi *gorm.DB, reportQueue ch
 			handlers.GetReportDataPaginatedHandler(c, db)
 		})
 
-		authorized.GET("/report/:id/excel", func(c *gin.Context) {
+		authorized.GET("/report/:id/:clientid/excel", func(c *gin.Context) {
 			handlers.GenerateExcelReportHandler(c, db, reportQueue, blockSize)
 		})
 
@@ -30,6 +31,11 @@ func SetupRoutes(router *gin.Engine, db *sql.DB, dbormi *gorm.DB, reportQueue ch
 		authorized.DELETE("/reports/:id", func(c *gin.Context) { handlers.DeleteReportHandler(c, dbormi) })
 		authorized.GET("/reports", func(c *gin.Context) { handlers.ListReportsHandler(c, dbormi) })
 	}
+
+	router.GET("/ws/:clientID", func(c *gin.Context) {
+		clientID := c.Param("clientID")
+		websockets.ServeWs(websockets.HubInstance, c.Writer, c.Request, clientID)
+	})
 }
 
 func ProcessReports(db *sql.DB, reportQueue chan int, semaphore chan struct{}, wg *sync.WaitGroup, blockSize int, filters map[string]string) {

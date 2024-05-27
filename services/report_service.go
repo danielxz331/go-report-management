@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"github.com/xuri/excelize/v2"
 	"go-report-management/utils"
+	"go-report-management/websockets"
 	"log"
 	"strings"
 	"sync"
 )
 
-func GenerateReport(db *sql.DB, reportID int, blockSize int, filters map[string]string) {
+func GenerateReport(db *sql.DB, reportID int, blockSize int, filters map[string]string, clientID string) {
 	query, whereClause, err := GetQueryByID(db, reportID)
 	if err != nil {
 		log.Printf("error getting query by ID: %v", err)
@@ -60,13 +61,15 @@ func GenerateReport(db *sql.DB, reportID int, blockSize int, filters map[string]
 			log.Printf("error saving Excel report: %v", err)
 		} else {
 			log.Printf("Excel file created successfully: %s", filename)
+			fileURL := fmt.Sprintf("https://reportstesting.sfo3.digitaloceanspaces.com/reports/reports/%s", filename)
+			websockets.NotifyClient(clientID, fmt.Sprintf("File generated: %s", fileURL))
 		}
 	}()
 
 	for i := 0; i < chunks; i++ {
 		offset := i * blockSize
 		wgChunks.Add(1)
-		go func(offset int) {
+		go func(offset, chunkNumber int) {
 			defer wgChunks.Done()
 			results, err := ExecuteQuery(db, query, whereClause, havingClause, offset, blockSize)
 			if err != nil {
@@ -74,7 +77,11 @@ func GenerateReport(db *sql.DB, reportID int, blockSize int, filters map[string]
 				return
 			}
 			resultsChan <- results
-		}(offset)
+
+			// Calcular el porcentaje de progreso y enviarlo al cliente
+			progress := float64(chunkNumber+1) / float64(chunks) * 100
+			websockets.NotifyClient(clientID, fmt.Sprintf("Progress: %.2f%%", progress))
+		}(offset, i)
 	}
 
 	wgChunks.Wait()

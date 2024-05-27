@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go-report-management/database"
 	"go-report-management/routes"
+	"go-report-management/websockets"
 	"log"
 	"sync"
 	"time"
@@ -46,9 +47,9 @@ func main() {
 	}
 	router.Use(cors.New(config))
 
+	websockets.InitHub()
 	routes.SetupRoutes(router, db, dbormi, reportQueue, blockSize)
 
-	// Filtros vacíos como ejemplo; ajusta según sea necesario
 	filters := map[string]string{}
 
 	go routes.ProcessReports(db, reportQueue, semaphore, &wg, blockSize, filters)

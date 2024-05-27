@@ -37,10 +37,16 @@ func GenerateExcelReportHandler(c *gin.Context, db *sql.DB, reportQueue chan int
 		return
 	}
 
+	clientID := c.Param("clientid")
+	if clientID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing clientID"})
+		return
+	}
+
 	filters := extractFilters(c)
 	reportQueue <- id
 	go func() {
-		services.GenerateReport(db, id, blockSize, filters)
+		services.GenerateReport(db, id, blockSize, filters, clientID)
 	}()
 	c.JSON(http.StatusAccepted, gin.H{"message": "Excel report generation in progress"})
 }
@@ -84,7 +90,7 @@ func GetReportDataPaginatedHandler(c *gin.Context, db *sql.DB) {
 func extractFilters(c *gin.Context) map[string]string {
 	filters := make(map[string]string)
 	for key, values := range c.Request.URL.Query() {
-		if key != "id" && key != "page" && key != "limit" {
+		if key != "id" && key != "page" && key != "limit" && key != "clientid" {
 			filters[key] = values[0]
 		}
 	}
