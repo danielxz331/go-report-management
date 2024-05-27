@@ -61,7 +61,7 @@ func GenerateReport(db *sql.DB, reportID int, blockSize int, filters map[string]
 		} else {
 			log.Printf("Excel file created successfully: %s", filename)
 			fileURL := fmt.Sprintf("https://reportstesting.sfo3.digitaloceanspaces.com/reports/reports/%s", filename)
-			websockets.NotifyClient(clientID, fmt.Sprintf("File generated: %s", fileURL))
+			websockets.NotifyClient(clientID, fileURL)
 		}
 	}()
 
