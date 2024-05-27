@@ -78,7 +78,10 @@ func GenerateReport(db *sql.DB, reportID int, blockSize int, filters map[string]
 			resultsChan <- results
 
 			progress := float64(chunkNumber+1) / float64(chunks) * 100
-			websockets.NotifyClient(clientID, fmt.Sprintf("Progress: %.2f%%", progress))
+
+			progressString := fmt.Sprintf("%.2f%%", progress)
+
+			websockets.NotifyClient(clientID, progressString)
 		}(offset, i)
 	}
 
