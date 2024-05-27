@@ -34,7 +34,6 @@ func GenerateReport(db *sql.DB, reportID int, blockSize int, filters map[string]
 	resultsChan := make(chan []map[string]interface{}, chunks)
 	var wgChunks sync.WaitGroup
 
-	// Crear el archivo Excel y escribir encabezados
 	f := excelize.NewFile()
 	headersWritten := false
 	var headers []string
@@ -78,7 +77,6 @@ func GenerateReport(db *sql.DB, reportID int, blockSize int, filters map[string]
 			}
 			resultsChan <- results
 
-			// Calcular el porcentaje de progreso y enviarlo al cliente
 			progress := float64(chunkNumber+1) / float64(chunks) * 100
 			websockets.NotifyClient(clientID, fmt.Sprintf("Progress: %.2f%%", progress))
 		}(offset, i)
