@@ -41,7 +41,6 @@ func Login(c *gin.Context, db *gorm.DB) {
 		return
 	}
 
-	// Recuperar usuario de la base de datos
 	result := db.Where("username = ?", creds.Username).First(&user)
 
 	fmt.Println(result)
@@ -198,7 +197,7 @@ func RefreshToken(c *gin.Context) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Refresh token has expired"})
 			return
 		}
-		
+
 		expirationTime := time.Now().Add(15 * time.Minute)
 		claims["exp"] = expirationTime.Unix()
 
